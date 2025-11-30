@@ -1,0 +1,10 @@
+# Ignore log files
+/log/*
+!/log/.keep
+
+# Ignore tmp files
+/tmp/*
+!/tmp/.keep
+
+# Ignore local secrets
+/tmp/local_secret.txt

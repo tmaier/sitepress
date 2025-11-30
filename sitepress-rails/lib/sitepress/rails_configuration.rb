@@ -22,7 +22,9 @@ module Sitepress
       @site ||= Site.new(root_path: default_root)
     end
 
-    # Location of Sprockets manifest file
+    # Location of Sprockets manifest file.
+    # Note: This is only used when Sprockets is the asset pipeline.
+    # Propshaft and no-build configurations do not use this.
     def manifest_file_path
       site.assets_path.join("config/manifest.js")
     end

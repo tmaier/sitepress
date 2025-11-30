@@ -1,5 +1,18 @@
 require "action_controller/railtie"
-require "sprockets/railtie"
+
+# Try to load an asset pipeline - Sprockets, Propshaft, or none
+SITEPRESS_ASSET_PIPELINE = begin
+  require "sprockets/railtie"
+  :sprockets
+rescue LoadError
+  begin
+    require "propshaft"
+    :propshaft
+  rescue LoadError
+    :none
+  end
+end
+
 require "sitepress-rails"
 
 # Require the gems listed in Gemfile, including any gems
@@ -50,16 +63,20 @@ module Sitepress
     logger.formatter = config.log_formatter
     config.logger    = ActiveSupport::TaggedLogging.new(logger)
 
-    # Debug mode disables concatenation and preprocessing of assets.
-    # This option may cause significant delays in view rendering with a large
-    # number of complex assets.
-    config.assets.debug = false
+    # Configure asset pipeline settings based on which pipeline is loaded
+    if SITEPRESS_ASSET_PIPELINE == :sprockets
+      # Debug mode disables concatenation and preprocessing of assets.
+      # This option may cause significant delays in view rendering with a large
+      # number of complex assets.
+      config.assets.debug = false
 
-    # Suppress logger output for asset requests.
-    config.assets.quiet = true
+      # Suppress logger output for asset requests.
+      config.assets.quiet = true
 
-    # Do not fallback to assets pipeline if a precompiled asset is missed.
-    config.assets.compile = true
+      # Do not fallback to assets pipeline if a precompiled asset is missed.
+      config.assets.compile = true
+    end
+    # Propshaft and no-build don't need these Sprockets-specific settings
 
     # Allow any host to connect to the development server. The actual binding is
     # controlled by server in the `sitepress-cli`; not by Rails.

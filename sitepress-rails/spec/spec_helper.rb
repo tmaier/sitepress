@@ -2,7 +2,18 @@ $LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
 
 ENV['RAILS_ENV'] ||= 'test'
 
-require File.expand_path("../dummy/config/environment.rb", __FILE__)
+# Select the dummy app based on ASSET_PIPELINE environment variable
+# Options: sprockets (default), propshaft, importmaps
+dummy_app = case ENV['ASSET_PIPELINE']
+when 'propshaft'
+  'dummy_propshaft'
+when 'importmaps', 'no_build'
+  'dummy_importmaps'
+else
+  'dummy_sprockets' # Default to Sprockets
+end
+
+require File.expand_path("../#{dummy_app}/config/environment.rb", __FILE__)
 require "rspec/rails"
 require "pry"
 

@@ -30,8 +30,11 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency "sitepress-core", spec.version
 
-  # We don't need every single rals rependency, so grab the subset here.
+  # We don't need every single rails dependency, so grab the subset here.
   spec.add_dependency "railties",       rails_version
   spec.add_dependency "actionpack",     rails_version
-  spec.add_dependency "sprockets-rails", ">= 2.0.0"
+
+  # Asset pipeline is optional - sitepress-rails works with Sprockets, Propshaft, or no asset pipeline
+  # If you use Sprockets, add sprockets-rails to your Gemfile
+  # If you use Propshaft, add propshaft to your Gemfile
 end

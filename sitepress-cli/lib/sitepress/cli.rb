@@ -1,4 +1,5 @@
 require "thor"
+require "fileutils"
 
 module Sitepress
   # Command line interface for compiling Sitepress sites.
@@ -54,7 +55,7 @@ module Sitepress
       initialize!
 
       logger.info "Sitepress compiling assets"
-      sprockets_manifest(target_path: options.fetch("output_path")).compile precompile_assets
+      compile_assets(target_path: options.fetch("output_path"))
 
       logger.info "Sitepress compiling pages"
       compiler = Compiler::Files.new \
@@ -110,10 +111,75 @@ module Sitepress
       Sitepress.configuration
     end
 
-    def sprockets_manifest(target_path: )
+    # Compile assets using the available asset pipeline
+    def compile_assets(target_path:)
       target_path = Pathname.new(target_path)
-      Sprockets::Manifest.new(rails.assets, target_path.join("assets/manifest.json")).tap do |manifest|
-        manifest.environment.logger = logger
+
+      if defined?(Sprockets::Railtie) && rails.respond_to?(:assets) && rails.assets
+        compile_assets_with_sprockets(target_path)
+      elsif defined?(Propshaft::Railtie)
+        compile_assets_with_propshaft(target_path)
+      else
+        compile_assets_with_copy(target_path)
+      end
+    end
+
+    # Compile assets using Sprockets
+    def compile_assets_with_sprockets(target_path)
+      logger.info "  Using Sprockets asset pipeline"
+      manifest = Sprockets::Manifest.new(rails.assets, target_path.join("assets/manifest.json"))
+      manifest.environment.logger = logger
+      manifest.compile(precompile_assets)
+    end
+
+    # Compile assets using Propshaft
+    def compile_assets_with_propshaft(target_path)
+      logger.info "  Using Propshaft asset pipeline"
+      assets_target = target_path.join("assets")
+      FileUtils.mkdir_p(assets_target)
+
+      # Use Propshaft's assembly to compile assets
+      if rails.respond_to?(:assets) && rails.assets.respond_to?(:output_path)
+        # Propshaft compiles to public/assets by default, copy from there
+        propshaft_output = rails.assets.output_path
+        if propshaft_output&.exist?
+          FileUtils.cp_r(Dir[propshaft_output.join("*")], assets_target)
+        else
+          # Fallback: copy assets directly from source paths
+          copy_assets_from_paths(assets_target)
+        end
+      else
+        copy_assets_from_paths(assets_target)
+      end
+    end
+
+    # Compile assets by simply copying them (no-build approach)
+    def compile_assets_with_copy(target_path)
+      logger.info "  No asset pipeline detected, copying assets directly"
+      assets_target = target_path.join("assets")
+      copy_assets_from_paths(assets_target)
+    end
+
+    # Copy assets from configured asset paths
+    def copy_assets_from_paths(assets_target)
+      FileUtils.mkdir_p(assets_target)
+
+      # Get asset paths from the Rails application
+      asset_paths = rails.paths["app/assets"].existent
+      asset_paths.each do |source_path|
+        source = Pathname.new(source_path)
+        next unless source.exist?
+
+        # Copy all files from this asset path
+        Dir[source.join("**", "*")].each do |file|
+          next if File.directory?(file)
+          next if file.end_with?("manifest.js") # Skip Sprockets manifest files
+
+          relative_path = Pathname.new(file).relative_path_from(source)
+          target_file = assets_target.join(relative_path)
+          FileUtils.mkdir_p(target_file.dirname)
+          FileUtils.cp(file, target_file)
+        end
       end
     end
 

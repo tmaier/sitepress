@@ -38,13 +38,22 @@ module Sitepress
     initializer "sitepress.set_paths", before: :set_autoload_paths do |app|
       site = Sitepress.configuration.site
 
+      # Helper to safely add to autoload paths (handles frozen arrays in Rails 8+)
+      add_to_autoload = ->(path) do
+        unless app.config.autoload_paths.frozen?
+          app.config.autoload_paths << path
+        end
+        unless app.config.eager_load_paths.frozen?
+          app.config.eager_load_paths << path
+        end
+      end
+
       # Helpers: autoloadable and available to controllers
       # Collapsed so app/content/helpers/sample_helper.rb defines SampleHelper (not Helpers::SampleHelper)
       site.helpers_path.expand_path.tap do |path|
         if path.exist?
           app.paths["app/helpers"].push path
-          app.config.autoload_paths << path
-          app.config.eager_load_paths << path
+          add_to_autoload.call(path)
           Rails.autoloaders.main.push_dir(path)
           Rails.autoloaders.main.collapse(path)
         end
@@ -55,28 +64,34 @@ module Sitepress
       site.models_path.expand_path.tap do |path|
         if path.exist?
           app.paths["app/models"].push path
-          app.config.autoload_paths << path
-          app.config.eager_load_paths << path
+          add_to_autoload.call(path)
           Rails.autoloaders.main.push_dir(path)
           Rails.autoloaders.main.collapse(path)
         end
       end
 
-      # Assets: available to Sprockets (no autoloading needed)
-      app.paths["app/assets"].push site.assets_path.expand_path
+      # Assets: available to asset pipeline (Sprockets or Propshaft)
+      # Both pipelines use app.paths["app/assets"] for asset discovery
+      if site.assets_path.expand_path.exist?
+        app.paths["app/assets"].push site.assets_path.expand_path
+      end
 
       # Views: available to ActionView (no autoloading needed - these are templates)
       app.paths["app/views"].push site.root_path.expand_path
       app.paths["app/views"].push site.pages_path.expand_path
 
       # Components: autoloadable for view_components
-      app.config.autoload_paths << File.expand_path("./components")
+      components_path = File.expand_path("./components")
+      add_to_autoload.call(components_path)
     end
 
-    # Configure sprockets paths for the site.
+    # Configure Sprockets manifest file path (only when Sprockets is available)
     initializer "sitepress.set_manifest_file_path", before: :append_assets_path do |app|
-      manifest_file = Sitepress.configuration.manifest_file_path.expand_path
-      app.config.assets.precompile << manifest_file.to_s if manifest_file.exist?
+      # Only configure if Sprockets is being used and assets config responds to precompile
+      if defined?(Sprockets::Railtie) && app.config.respond_to?(:assets) && app.config.assets.respond_to?(:precompile)
+        manifest_file = Sitepress.configuration.manifest_file_path.expand_path
+        app.config.assets.precompile << manifest_file.to_s if manifest_file.exist?
+      end
     end
 
     # Configure Sitepress with Rails settings.

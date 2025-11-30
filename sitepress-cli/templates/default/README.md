@@ -56,7 +56,7 @@ Like Rails, Sitepress organizes files in certain directories:
 
 * `helpers` - Complex view code that you don't want to live in `page` or `layouts` can be extracted into helpers and re-used throughout the website. These are just like Rails helpers.
 
-* `assets` - If you want Sprockets to fingerprint and manage images, stylesheets, or scripts then put them in the `assets` directory.
+* `assets` - Static assets like images, stylesheets, and scripts go in this directory. Sitepress works with Sprockets, Propshaft, or no asset pipeline at all.
 
 * `config` - All configuration files and initializers belong in this directory. The `config/site.rb` file has settings that can be changed for the Sitepress site. Changes made to this file require the `sitepress server` to be restarted.
 
